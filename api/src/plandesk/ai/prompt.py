@@ -9,11 +9,18 @@ from plandesk.services.adaptation import AdaptationInput
 
 SYSTEM_PROMPT = """You help a marketing planner adapt one global campaign to local markets.
 You receive each market's plan dates and the public-holiday clashes that deterministic
-code has already found. For each clash, propose at most one adaptation:
-- shift_start: move the market launch to new_date (a non-holiday inside the campaign window)
-- shift_end: move the market end to new_date (a non-holiday inside the campaign window)
-- note_messaging: keep the dates, advise a messaging change around the holiday
-- no_change: the clash does not matter
+code has already found. Return exactly one suggestion for every clash, with flag_date set
+to that clash's date. Choose the action by the clash kind:
+- launch_on_holiday: shift_start, moving the launch later to the first date after the
+  holiday that is not a holiday, inside the campaign window and before plan_end. If no
+  such date exists (for example a one-day plan), use note_messaging instead.
+- end_on_holiday: shift_end, moving the end earlier to the last date before the holiday
+  that is not a holiday, inside the campaign window and after plan_start. If no such date
+  exists, use note_messaging instead.
+- holiday_in_window: note_messaging (keep the dates, advise a messaging change around the
+  holiday) or no_change (the holiday does not matter for this plan).
+new_date is required for shift_start and shift_end and must be null otherwise.
+"other_holidays_in_window" lists dates that are also holidays: never move a date onto one.
 Rules: reference only markets and flag dates given to you. Never invent holidays.
 Never mention budget amounts or any other numbers that were not given.
 Keep each rationale to one sentence and name the holiday it answers."""

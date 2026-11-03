@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Market Plan Desk API: campaign planning across local markets"
 requires-python = ">=3.12"
 dependencies = [
+    "aiohttp>=3.11",
     "alembic>=1.14",
     "asyncpg>=0.30",
     "azure-ai-projects>=1.0",

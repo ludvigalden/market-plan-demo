@@ -104,7 +104,7 @@ async def test_suggest_accept_reject_audit(client: httpx.AsyncClient) -> None:
     assert body["rejected_by_validator"] == 0
     se = [s for s in body["suggestions"] if s["market_code"] == "SE"]
     assert se[0]["action"] == "shift_start" and se[0]["new_date"] == "2026-05-04"
-    assert se[0]["model_deployment"] == "stub" and se[0]["prompt_version"] == "adapt-v1"
+    assert se[0]["model_deployment"] == "stub" and se[0]["prompt_version"] == "adapt-v2"
     assert se[0]["verdict"] is None
 
     # Suggestions are never applied without a decision.

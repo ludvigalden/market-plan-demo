@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 from plandesk.services.adaptation import AdaptationInput
 
-PROMPT_VERSION = "adapt-v1"
+PROMPT_VERSION = "adapt-v2"
 
 
 @dataclass(frozen=True, slots=True)
