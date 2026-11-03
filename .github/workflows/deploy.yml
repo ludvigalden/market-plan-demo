@@ -1,26 +1,25 @@
 name: Deploy
 
-# Every push to main ships: the image is built and pushed, the live
-# Foundry eval gates the rollout, the container app is pointed at the new
-# image, and a headless browser drives the primary journey against it.
+# Every push to main that passes CI ships: the CI workflow calls this one
+# only after all of its gates are green. The image is built and pushed, the
+# live Foundry eval gates the rollout, the container app is pointed at the
+# new image, and a headless browser drives the primary journey against it.
 
 on:
-  push:
-    branches: [main]
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
-
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 40
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
