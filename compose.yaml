@@ -1,0 +1,16 @@
+# Local development database. Listens on loopback only; trust auth keeps
+# credentials out of the repository.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: plandesk
+      POSTGRES_DB: plandesk
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U plandesk -d plandesk"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

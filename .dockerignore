@@ -1,0 +1,11 @@
+# Deny everything, then allow only the build inputs.
+*
+!api
+!web
+!contracts
+**/node_modules
+**/.venv
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
