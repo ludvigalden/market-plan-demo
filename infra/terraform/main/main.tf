@@ -154,23 +154,6 @@ resource "azurerm_cognitive_deployment" "chat" {
   }
 }
 
-resource "azurerm_cognitive_deployment" "chat_previous" {
-  name                 = "gpt-41-mini"
-  cognitive_account_id = azurerm_cognitive_account.ai.id
-  rai_policy_name      = "Microsoft.DefaultV2"
-
-  model {
-    format  = "OpenAI"
-    name    = "gpt-4.1-mini"
-    version = "2025-04-14"
-  }
-
-  sku {
-    name     = "DataZoneStandard"
-    capacity = 20
-  }
-}
-
 # Inference over Entra ID only: the app identity for the running app, the
 # CD identity for the deploy-time eval, the owner for local runs.
 resource "azurerm_role_assignment" "ai_user_app" {
