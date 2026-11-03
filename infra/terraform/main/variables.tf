@@ -54,3 +54,12 @@ variable "chat_model_deployment_name" {
   type    = string
   default = "gpt-6-luna"
 }
+
+# Custom hostname served with a managed certificate. Empty leaves the app
+# on its generated Container Apps hostname. Its DNS records (a CNAME to
+# the app and the asuid TXT verification record) must resolve before the
+# apply that sets it.
+variable "public_hostname" {
+  type    = string
+  default = ""
+}

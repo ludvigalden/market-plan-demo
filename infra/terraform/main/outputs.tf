@@ -32,3 +32,8 @@ output "foundry_model_deployment" {
 output "app_identity_client_id" {
   value = azurerm_user_assigned_identity.app.client_id
 }
+
+output "public_url" {
+  description = "Custom-domain URL, or the generated hostname when none is set."
+  value       = var.public_hostname != "" ? "https://${var.public_hostname}" : "https://${azurerm_container_app.app.ingress[0].fqdn}"
+}

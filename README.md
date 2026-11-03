@@ -6,6 +6,8 @@ sees each market's public holidays and the clashes they cause, and reviews
 AI-drafted local adaptations. Nothing changes until the planner accepts a
 suggestion, and every decision is written to an audit log.
 
+Live: <https://market-plan.demo.ludvigalden.com>
+
 All brand, campaign and budget data in this repository is fictional. Market
 codes are real ISO country codes, because the holiday data is real public
 data.
@@ -109,7 +111,9 @@ Terraform in `infra/terraform` provisions the Azure deployment in two roots.
   - a Microsoft Foundry resource and project with a `gpt-6-luna`
     deployment (EU data zone). The app calls it with its managed identity
     (the Foundry User role). Key authentication is disabled;
-  - Log Analytics with a 0.1 GB daily cap.
+  - Log Analytics with a 0.1 GB daily cap;
+  - an optional custom hostname (`public_hostname`) with a free managed
+    certificate, bound with SNI once its DNS records resolve.
 
 Both roots keep their state in the bootstrap account. Pass its names with
 `-backend-config`:
