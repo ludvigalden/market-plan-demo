@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "plandesk"
+version = "0.1.0"
+description = "Market Plan Desk API: campaign planning across local markets"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.14",
+    "asyncpg>=0.30",
+    "azure-ai-projects>=1.0",
+    "azure-identity>=1.19",
+    "fastapi>=0.115",
+    "httpx>=0.28",
+    "openai>=1.60",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "sqlalchemy[asyncio]>=2.0.36",
+    "uvicorn[standard]>=0.32",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.22",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "respx>=0.22",
+    "ruff>=0.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plandesk"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "UP", "B", "I", "C4", "ASYNC"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["plandesk"]
+
+[tool.basedpyright]
+include = ["src", "tests", "scripts", "migrations"]
+exclude = ["**/__pycache__", "**/.venv"]
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = ["--strict-markers", "--strict-config", "-ra"]
