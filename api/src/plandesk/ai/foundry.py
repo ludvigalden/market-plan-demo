@@ -33,7 +33,6 @@ class FoundryProvider:
     async def propose(self, inp: AdaptationInput) -> ProviderResult:
         completion = await self._client.chat.completions.create(
             model=self._deployment,
-            temperature=0,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message(inp)},
