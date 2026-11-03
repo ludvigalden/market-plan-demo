@@ -52,5 +52,5 @@ variable "postgres_location_short" {
 
 variable "chat_model_deployment_name" {
   type    = string
-  default = "gpt-41-mini"
+  default = "gpt-6-luna"
 }

@@ -142,14 +142,30 @@ resource "azurerm_cognitive_deployment" "chat" {
 
   model {
     format  = "OpenAI"
+    name    = "gpt-6-luna"
+    version = "2026-09-22"
+  }
+
+  sku {
+    # The EU data zone keeps inference in EU datacentres for a Sweden
+    # deployment. Capacity is in thousands of tokens per minute.
+    name     = "DataZoneStandard"
+    capacity = 20
+  }
+}
+
+resource "azurerm_cognitive_deployment" "chat_previous" {
+  name                 = "gpt-41-mini"
+  cognitive_account_id = azurerm_cognitive_account.ai.id
+  rai_policy_name      = "Microsoft.DefaultV2"
+
+  model {
+    format  = "OpenAI"
     name    = "gpt-4.1-mini"
     version = "2025-04-14"
   }
 
   sku {
-    # The EU data zone rather than regional Standard: the subscription's
-    # regional Standard quota for this model is nearly exhausted by another
-    # project, and residency is unchanged for a Sweden deployment.
     name     = "DataZoneStandard"
     capacity = 20
   }

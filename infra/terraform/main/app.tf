@@ -48,7 +48,7 @@ resource "azurerm_container_app" "app" {
       }
       env {
         name  = "FOUNDRY_MODEL_DEPLOYMENT"
-        value = var.chat_model_deployment_name
+        value = azurerm_cognitive_deployment.chat.name
       }
 
       startup_probe {
