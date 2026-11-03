@@ -153,8 +153,12 @@ reject a suggestion. Those decisions stay with the planner in the web app.
   `<campaign>` is an id, an id prefix or a word of the name.
 - `/plan-desk suggest <campaign> <market>` drafts adaptations for one
   market and prints them, unaccepted.
-- The `read-plans` skill tells Claude how to use the command when you ask
-  about a campaign.
+- Claude itself reaches the same operations through three tools the
+  plugin registers: `list_campaigns`, `show_campaign` and
+  `suggest_adaptations`. They run the same client and actions as the
+  command, so the two cannot drift, and there is deliberately no tool to
+  accept or reject a suggestion. The `read-plans` skill points Claude at
+  them.
 
 Load it for one session (Claude Code 2.1.317 or later):
 
@@ -174,8 +178,8 @@ API on port 8000, set it in `/config`, or in settings:
 ```
 
 The app scales to zero when idle, so the first call can take about 30
-seconds. A call that times out or meets a 502 or 503 says the app may be
-waking up.
+seconds. A command or tool call that times out or meets a 502 or 503
+says the app may be waking up.
 
 The hooks run inside Claude Code with no Node runtime, so
 `plugin/hooks/client.ts` is a small typed wrapper over the host's fetch,
@@ -184,7 +188,7 @@ same contract as the web client.
 
 ```sh
 claude plugin validate plugin
-claude plugin test plugin            # formatter, parser, client and command tests
+claude plugin test plugin            # formatter, parser, client, command and tool tests
 cd web && npm run typecheck:plugin   # needs the API types Claude Code writes
                                      # to plugin/.claude-plugin/types on load
 ```

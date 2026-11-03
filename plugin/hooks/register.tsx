@@ -1,5 +1,5 @@
-// The plan-desk mod: a slash command over the Market Plan Desk API and a
-// side pane for the campaign it last read. It reads and proposes only;
+// The plan-desk mod: three tools the model calls, a /plan-desk command
+// over the same actions, and a side pane. It reads and proposes only;
 // accept and reject stay in the web app. Failures answer visibly.
 
 import { atom, read, update } from "claude-code";
@@ -7,23 +7,14 @@ import type { EngineInterface, Register } from "claude-code";
 
 import type { PaneState } from "../types";
 import {
-  ApiError,
-  type Campaign,
-  type Client,
-  createClient,
-} from "./client.ts";
-import {
-  COMMAND,
-  errorText,
-  formatCampaignList,
-  formatPaneText,
-  formatSuggestResult,
-  isUuid,
-  paneModel,
-  parseArgs,
-  pickCampaign,
-  USAGE,
-} from "./format.ts";
+  detailOf,
+  listCampaigns,
+  showCampaign,
+  suggestAdaptations,
+} from "./actions.ts";
+import { type Client, createClient } from "./client.ts";
+import { COMMAND, errorText, parseArgs, USAGE } from "./format.ts";
+import { fullName, TOOL, TOOL_SPECS, toolRequest } from "./tools.ts";
 
 const PANE = "plan-desk";
 const DEFAULT_BASE_URL =
@@ -32,15 +23,8 @@ const DEFAULT_BASE_URL =
 const pane = atom(
   { plugin: "plan-desk", key: "pane" } as const,
   { kind: "empty" },
-  {
-    shape: "pane-1",
-  },
+  { shape: "pane-1" },
 );
-
-function detailOf(error: unknown): string {
-  if (error instanceof ApiError) return error.message;
-  return error instanceof Error ? error.message : String(error);
-}
 
 function clientFor($: EngineInterface, baseUrl: string): Client {
   return createClient({
@@ -50,15 +34,39 @@ function clientFor($: EngineInterface, baseUrl: string): Client {
   });
 }
 
-async function resolveCampaign(api: Client, query: string): Promise<Campaign> {
-  if (isUuid(query)) {
-    return api("get", "/api/campaigns/{campaign_id}", {
-      path: { campaign_id: query },
-    });
+/** Register the model's tools; a refused one is named, never skipped. */
+async function registerTools($: EngineInterface): Promise<string[]> {
+  const refused: string[] = [];
+  for (const spec of TOOL_SPECS) {
+    try {
+      await $.tool.register({ ...spec, inputSchema: { ...spec.inputSchema } });
+    } catch (error) {
+      refused.push(`${spec.name}: ${detailOf(error)}`);
+    }
   }
-  const picked = pickCampaign(query, await api("get", "/api/campaigns", {}));
-  if ("error" in picked) throw new Error(picked.error);
-  return picked.campaign;
+  return refused;
+}
+
+/** Show a campaign and keep it for the pane. */
+async function showIntoPane(
+  $: EngineInterface,
+  api: Client,
+  query: string,
+): Promise<string> {
+  await update($, pane, (): PaneState => ({ kind: "loading", label: query }));
+  try {
+    const shown = await showCampaign(api, query);
+    await update($, pane, (): PaneState => ({
+      kind: "ready",
+      campaignId: shown.campaignId,
+      model: shown.model,
+    }));
+    return shown.text;
+  } catch (error) {
+    const message = errorText("show", detailOf(error));
+    await update($, pane, (): PaneState => ({ kind: "error", message }));
+    throw error;
+  }
 }
 
 export const register: Register = (on, options) => {
@@ -69,6 +77,10 @@ export const register: Register = (on, options) => {
       : DEFAULT_BASE_URL;
 
   on("session.start", async ($, e, next) => {
+    const refused = await registerTools($);
+    if (refused.length > 0) {
+      $.ui.toast(`plan-desk: tools not registered: ${refused.join("; ")}`);
+    }
     try {
       await $.command.register({
         name: COMMAND,
@@ -84,84 +96,57 @@ export const register: Register = (on, options) => {
     return next(e);
   });
 
-  on("command.run", { command: COMMAND }, async ($, e) => {
-    const parsed = parseArgs(e.args);
-    const api = clientFor($, baseUrl);
-
-    if (parsed.kind === "error") return { text: parsed.message };
-
-    if (parsed.kind === "list") {
+  for (const name of [TOOL.list, TOOL.show, TOOL.suggest]) {
+    on("tool.call", { tool: fullName(name) }, async ($, e) => {
+      const request = toolRequest(e.tool, e as Record<string, unknown>);
+      const api = clientFor($, baseUrl);
       try {
-        $.ui.status(`plan-desk: reading campaigns from ${baseUrl}`);
+        if (request.kind === "error") return { deny: request.message };
+        if (request.kind === "list")
+          return { result: await listCampaigns(api) };
+        if (request.kind === "show") {
+          return { result: await showIntoPane($, api, request.campaign) };
+        }
         return {
-          text: formatCampaignList(await api("get", "/api/campaigns", {})),
+          result: await suggestAdaptations(
+            api,
+            request.campaign,
+            request.market,
+          ),
         };
       } catch (error) {
-        return { text: errorText("list", detailOf(error)) };
-      } finally {
-        $.ui.status(undefined);
+        return { deny: errorText(name, detailOf(error)) };
       }
-    }
+    }).catch((_$, _e, next) => ({
+      deny: errorText(
+        name,
+        next.error.kind === "timeout"
+          ? "ran out of time; the app may be waking up, call again in about 30 s"
+          : (next.error.message ?? "it stopped without a message"),
+      ),
+    }));
+  }
 
-    if (parsed.kind === "show") {
-      try {
-        $.ui.status(`plan-desk: reading ${parsed.campaign}`);
-        await update($, pane, (): PaneState => ({
-          kind: "loading",
-          label: parsed.campaign,
-        }));
+  on("command.run", { command: COMMAND }, async ($, e) => {
+    const parsed = parseArgs(e.args);
+    if (parsed.kind === "error") return { text: parsed.message };
+    const api = clientFor($, baseUrl);
+    try {
+      $.ui.status(`plan-desk: ${parsed.kind} via ${baseUrl}`);
+      if (parsed.kind === "list") return { text: await listCampaigns(api) };
+      if (parsed.kind === "show") {
         const opened = await $.ui.open({ id: PANE, title: "Plan desk" });
-        const campaign = await resolveCampaign(api, parsed.campaign);
-        const path = { campaign_id: campaign.id };
-        const [view, suggestions] = await Promise.all([
-          api("get", "/api/campaigns/{campaign_id}/market-view", { path }),
-          api("get", "/api/campaigns/{campaign_id}/suggestions", { path }),
-        ]);
-        const model = paneModel(view, suggestions);
-        await update($, pane, (): PaneState => ({
-          kind: "ready",
-          campaignId: campaign.id,
-          model,
-        }));
+        const text = await showIntoPane($, api, parsed.campaign);
         const where = opened.isPlaced
           ? "Shown in the plan desk pane."
           : "The plan desk pane is open but not drawn here.";
-        return { text: `${formatPaneText(model, campaign.id)}\n${where}` };
-      } catch (error) {
-        const message = errorText("show", detailOf(error));
-        await update($, pane, (): PaneState => ({ kind: "error", message }));
-        return { text: message };
-      } finally {
-        $.ui.status(undefined);
+        return { text: `${text}\n${where}` };
       }
-    }
-
-    try {
-      $.ui.status(`plan-desk: drafting suggestions for ${parsed.market}`);
-      const campaign = await resolveCampaign(api, parsed.campaign);
-      if (!campaign.market_codes.includes(parsed.market)) {
-        const assigned =
-          campaign.market_codes.length === 0
-            ? "none"
-            : campaign.market_codes.join(", ");
-        return {
-          text: errorText(
-            "suggest",
-            `${parsed.market} is not assigned to ${campaign.name} (assigned: ${assigned})`,
-          ),
-        };
-      }
-      const result = await api(
-        "post",
-        "/api/campaigns/{campaign_id}/suggestions",
-        {
-          path: { campaign_id: campaign.id },
-          body: { market_codes: [parsed.market] },
-        },
-      );
-      return { text: formatSuggestResult(result, parsed.market, campaign) };
+      return {
+        text: await suggestAdaptations(api, parsed.campaign, parsed.market),
+      };
     } catch (error) {
-      return { text: errorText("suggest", detailOf(error)) };
+      return { text: errorText(parsed.kind, detailOf(error)) };
     } finally {
       $.ui.status(undefined);
     }

@@ -62,8 +62,23 @@ const RUN = {
 
 type Fake = (url: string, method: string) => { status: number; text: string };
 
-function engine(on: On, fake: Fake, calls: string[]): void {
+type Registered = { name: string; isDeferred?: boolean; inputSchema?: unknown };
+
+function engine(
+  on: On,
+  fake: Fake,
+  calls: string[],
+  tools: Registered[] = [],
+): void {
   on("command.register", () => ({ value: { command: "plan-desk" } }));
+  on("tool.register", (_, e) => {
+    tools.push({
+      name: e.name,
+      isDeferred: e.isDeferred,
+      inputSchema: e.inputSchema,
+    });
+    return { value: { tool: `mcp__plan-desk__${e.name}` } };
+  });
   on("ui.open", () => ({ value: { isPlaced: true } }));
   on("ui.status", () => ({ value: undefined }));
   on("session.start", (_, e) => ({ cwd: e.cwd }));
@@ -172,5 +187,71 @@ test(
     );
     const bad = await $.command.run({ ...RUN, args: "suggest spring" });
     expect(bad.text).toMatch(/suggest takes a campaign and a market/);
+  },
+);
+
+test(
+  "the model reaches every operation as an undeferred tool, never accept or reject",
+  { options: { apiBaseUrl: BASE } },
+  async ($, on) => {
+    const calls: string[] = [];
+    const tools: Registered[] = [];
+    engine(on, live, calls, tools);
+    await $.session.start({
+      cwd: "/",
+      surface: "terminal",
+      isInteractive: true,
+    });
+
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "list_campaigns",
+      "show_campaign",
+      "suggest_adaptations",
+    ]);
+    expect(tools.every((t) => t.isDeferred === false)).toBe(true);
+    expect(tools.some((t) => /accept|reject|decide/.test(t.name))).toBe(false);
+
+    const list = await $.tool.call({
+      tool: "mcp__plan-desk__list_campaigns",
+    } as never);
+    expect(list.result).toContain("02b38983  Spring Essentials");
+
+    const show = await $.tool.call({
+      tool: "mcp__plan-desk__show_campaign",
+      campaign: "spring",
+    } as never);
+    expect(show.result).toContain("! launch on holiday 1 May 2026");
+
+    const suggest = await $.tool.call({
+      tool: "mcp__plan-desk__suggest_adaptations",
+      campaign: "spring",
+      market: "se",
+    } as never);
+    expect(suggest.result).toContain("1 suggestion(s) proposed for SE");
+    expect(suggest.result).toContain("Nothing was accepted.");
+    expect(calls.some((c) => /\/accept|\/reject/.test(c))).toBe(false);
+  },
+);
+
+test(
+  "a waking app reaches the model as the client's hint, not a silent timeout",
+  { options: { apiBaseUrl: BASE } },
+  async ($, on) => {
+    engine(on, () => ({ status: 503, text: "" }), []);
+    await $.session.start({
+      cwd: "/",
+      surface: "terminal",
+      isInteractive: true,
+    });
+    const list = await $.tool.call({
+      tool: "mcp__plan-desk__list_campaigns",
+    } as never);
+    expect(list.deny ?? list.text).toMatch(/HTTP 503; .*may be waking up/);
+    const bad = await $.tool.call({
+      tool: "mcp__plan-desk__suggest_adaptations",
+      campaign: "spring",
+      market: "Sweden",
+    } as never);
+    expect(bad.deny ?? bad.text).toMatch(/two-letter code/);
   },
 );
