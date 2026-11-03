@@ -17,8 +17,7 @@ import { COMMAND, errorText, parseArgs, USAGE } from "./format.ts";
 import { fullName, TOOL, TOOL_SPECS, toolRequest } from "./tools.ts";
 
 const PANE = "plan-desk";
-const DEFAULT_BASE_URL =
-  "https://mpd-app.graysky-09e0f216.swedencentral.azurecontainerapps.io";
+const DEFAULT_BASE_URL = "https://market-plan.demo.ludvigalden.com";
 
 const pane = atom(
   { plugin: "plan-desk", key: "pane" } as const,
