@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+
+contracts/openapi.json linguist-generated=true
+web/src/api/schema.d.ts linguist-generated=true
+plugin/generated/schema.d.ts linguist-generated=true
