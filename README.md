@@ -153,7 +153,7 @@ reject a suggestion. Those decisions stay with the planner in the web app.
   `<campaign>` is an id, an id prefix or a word of the name.
 - `/plan-desk suggest <campaign> <market>` drafts adaptations for one
   market and prints them, unaccepted.
-- The `plan-desk` skill tells Claude how to use the command when you ask
+- The `read-plans` skill tells Claude how to use the command when you ask
   about a campaign.
 
 Load it for one session (Claude Code 2.1.317 or later):

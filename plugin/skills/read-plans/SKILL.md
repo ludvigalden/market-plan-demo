@@ -1,5 +1,5 @@
 ---
-name: plan-desk
+name: read-plans
 description: Read Market Plan Desk campaigns, market clashes and pending suggestions through the /plan-desk command, and draft local adaptations for a market. Use when the user asks about a campaign's markets, holiday clashes or suggestions.
 ---
 
