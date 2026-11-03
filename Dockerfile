@@ -1,7 +1,8 @@
 # One image serves the SPA and the API: the SPA is built first and copied
-# into the API image as static files.
+# into the API image as static files. The SPA build runs on the builder's
+# own platform, since its output is the same static files everywhere.
 
-FROM node:24-alpine AS web
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci

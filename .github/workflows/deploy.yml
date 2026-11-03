@@ -1,0 +1,125 @@
+name: Deploy
+
+# Every push to main ships: the image is built and pushed, the live
+# Foundry eval gates the rollout, the container app is pointed at the new
+# image, and a headless browser drives the primary journey against it.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
+      CONTAINER_APP_NAME: ${{ vars.CONTAINER_APP_NAME }}
+      REGISTRY: ${{ vars.REGISTRY_LOGIN_SERVER }}
+      FOUNDRY_PROJECT_ENDPOINT: ${{ vars.FOUNDRY_PROJECT_ENDPOINT }}
+      FOUNDRY_MODEL_DEPLOYMENT: ${{ vars.FOUNDRY_MODEL_DEPLOYMENT }}
+      APP_URL: ${{ vars.APP_URL }}
+    steps:
+      - name: Require the environment bindings
+        run: |
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID \
+            RESOURCE_GROUP CONTAINER_APP_NAME REGISTRY \
+            FOUNDRY_PROJECT_ENDPOINT FOUNDRY_MODEL_DEPLOYMENT APP_URL; do
+            if [ -z "$(printenv "$name")" ]; then
+              echo "the production environment must set $name" >&2
+              exit 1
+            fi
+          done
+
+      - uses: actions/checkout@v7
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push the image
+        id: image
+        run: |
+          az acr login --name "${REGISTRY%%.*}"
+          image="$REGISTRY/plandesk:${GITHUB_SHA}"
+          docker build --tag "$image" .
+          docker push "$image"
+          digest="$(docker inspect --format '{{index .RepoDigests 0}}' "$image")"
+          echo "ref=$digest" >> "$GITHUB_OUTPUT"
+          echo "pushed $digest"
+
+      - uses: astral-sh/setup-uv@v10.3.3
+
+      # The same grader as the deterministic stub run, against the live
+      # deployment. A failed or errored case stops the rollout.
+      - name: Gate on the live Foundry eval
+        env:
+          AI_PROVIDER: foundry
+        run: uv run --project api python eval/run.py
+
+      - name: Roll out the image
+        run: |
+          az containerapp update \
+            --name "$CONTAINER_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "${{ steps.image.outputs.ref }}" \
+            --output none
+
+      # Migrations run in the container entrypoint before the server binds,
+      # so a healthy revision is a migrated one.
+      - name: Wait for the new revision to report healthy
+        run: |
+          for _ in $(seq 1 40); do
+            body="$(curl --silent --max-time 20 "$APP_URL/healthz" || true)"
+            state="$(printf '%s' "$body" | jq -r '[.status, .database, .ai_provider] | join("/")' 2>/dev/null || true)"
+            if [ "$state" = "ok/ok/foundry" ]; then
+              image="$(az containerapp show --name "$CONTAINER_APP_NAME" --resource-group "$RESOURCE_GROUP" \
+                --query 'properties.template.containers[0].image' --output tsv)"
+              if [ "$image" = "${{ steps.image.outputs.ref }}" ]; then
+                echo "healthy: $body"
+                exit 0
+              fi
+            fi
+            sleep 15
+          done
+          echo "the app never reported ok/ok/foundry on the new image (last body: $body)" >&2
+          exit 1
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install the smoke browser
+        working-directory: tools/smoke
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Smoke the primary journey in a headless browser
+        working-directory: tools/smoke
+        run: node smoke.mjs "$APP_URL" "$FOUNDRY_MODEL_DEPLOYMENT" smoke-output
+
+      - name: Keep the smoke screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-screenshots
+          path: tools/smoke/smoke-output
+          if-no-files-found: ignore
