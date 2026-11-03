@@ -1,0 +1,14 @@
+{
+  "name": "plan-desk",
+  "version": "0.1.0",
+  "description": "Read Market Plan Desk campaigns and draft local adaptations from Claude Code",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "apiBaseUrl": {
+      "type": "string",
+      "title": "Market Plan Desk API base URL",
+      "description": "Where the API runs; use http://127.0.0.1:8000 for a local server",
+      "default": "https://mpd-app.graysky-09e0f216.swedencentral.azurecontainerapps.io"
+    }
+  }
+}

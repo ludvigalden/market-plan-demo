@@ -141,6 +141,54 @@ environment and holds no secrets.
 To remove everything, run `terraform destroy` in `main/`, then in
 `bootstrap/`.
 
+## Claude Code plugin
+
+`plugin/` is a Claude Code plugin that brings the plan desk into a coding
+session. It reads campaigns and proposes adaptations; it cannot accept or
+reject a suggestion. Those decisions stay with the planner in the web app.
+
+- `/plan-desk list` lists campaigns.
+- `/plan-desk show <campaign>` prints each market's dates, holiday clashes
+  and pending suggestions, and opens a side pane with the same view.
+  `<campaign>` is an id, an id prefix or a word of the name.
+- `/plan-desk suggest <campaign> <market>` drafts adaptations for one
+  market and prints them, unaccepted.
+- The `plan-desk` skill tells Claude how to use the command when you ask
+  about a campaign.
+
+Load it for one session (Claude Code 2.1.317 or later):
+
+```sh
+claude --plugin-dir plugin
+```
+
+The `apiBaseUrl` option defaults to the Azure deployment. To use a local
+API on port 8000, set it in `/config`, or in settings:
+
+```json
+{
+  "pluginConfigs": {
+    "plan-desk": { "options": { "apiBaseUrl": "http://127.0.0.1:8000" } }
+  }
+}
+```
+
+The app scales to zero when idle, so the first call can take about 30
+seconds. A call that times out or meets a 502 or 503 says the app may be
+waking up.
+
+The hooks run inside Claude Code with no Node runtime, so
+`plugin/hooks/client.ts` is a small typed wrapper over the host's fetch,
+keyed on `plugin/generated/schema.d.ts`. That file is generated from the
+same contract as the web client.
+
+```sh
+claude plugin validate plugin
+claude plugin test plugin            # formatter, parser, client and command tests
+cd web && npm run typecheck:plugin   # needs the API types Claude Code writes
+                                     # to plugin/.claude-plugin/types on load
+```
+
 ## Checks
 
 ```sh
@@ -153,7 +201,7 @@ cd ../web
 npm run generate && npm run typecheck && npm run lint
 npm run format:check && npm test && npx vite build
 cd .. && uv run --project api python eval/run.py
-git diff --exit-code contracts web/src/api
+git diff --exit-code contracts web/src/api plugin/generated
 ```
 
 ## Licence

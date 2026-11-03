@@ -9,9 +9,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "generate": "openapi-typescript ../contracts/openapi.json -o src/api/schema.d.ts && node scripts/stamp-generated.mjs src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
+    "generate": "openapi-typescript ../contracts/openapi.json -o src/api/schema.d.ts && openapi-typescript ../contracts/openapi.json -o ../plugin/generated/schema.d.ts && node scripts/stamp-generated.mjs src/api/schema.d.ts ../plugin/generated/schema.d.ts && prettier --write src/api/schema.d.ts ../plugin/generated/schema.d.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "typecheck:plugin": "tsc -p ../plugin"
   },
   "dependencies": {
     "openapi-fetch": "^0.17.0",

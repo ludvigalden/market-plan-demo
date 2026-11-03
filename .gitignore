@@ -1,8 +1,19 @@
 /*
+!.dockerignore
 !.editorconfig
+!.env.example
 !.gitattributes
+!.github/
+!Dockerfile
 !LICENSE
 !README.md
+!api/
+!compose.yaml
+!contracts/
+!eval/
+!infra/
+!tools/
+!web/
 
 **/.dev.vars
 **/.dev.vars.*
@@ -40,6 +51,7 @@ dist
 node_modules
 out
 playwright-report
+plugin/.claude-plugin/types
 target
 test-results
 tmp
@@ -59,6 +71,9 @@ override.tf.json
 .terraformrc
 terraform.rc
 *.tfplan
+
+.hadolint.yaml
+ruff.toml
 
 !.config/
 !.config/security/
