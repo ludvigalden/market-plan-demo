@@ -122,8 +122,14 @@ Both roots keep their state in the bootstrap account. Pass its names with
 cd infra/terraform/main
 terraform init -backend-config=resource_group_name=<prefix>-tfstate \
   -backend-config=storage_account_name=<prefix>tfstate
-terraform apply   # prefix, cd_principal_object_id, owner_principal_object_id
+terraform apply   # prefix, cd_principal_object_id, owner_principal_object_id,
+                  # public_hostname
 ```
+
+Keep these values in a local `main.auto.tfvars`. It is gitignored because
+the values are specific to one environment. An apply without
+`public_hostname` removes the custom domain. The deploy workflow only
+swaps the image and never runs Terraform.
 
 `.github/workflows/deploy.yml` runs on every push to `main`:
 
